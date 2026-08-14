@@ -14,7 +14,8 @@
   "generated_on",
   "expires_on",
   "verification_status",
-  "attempt_count"
+  "attempt_count",
+  "payment_transaction"
  ],
  "fields": [
   {
@@ -28,8 +29,7 @@
    "fieldname": "purchase_invoice",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Purchase Invoice",
-   "reqd": 1
+   "label": "Purchase Invoice"
   },
   {
    "fieldname": "phone_number",
@@ -70,12 +70,18 @@
    "fieldname": "attempt_count",
    "fieldtype": "Int",
    "label": "Attempt Count"
+  },
+  {
+   "fieldname": "payment_transaction",
+   "fieldtype": "Link",
+   "label": "Payment Transaction",
+   "options": "Payment Transaction"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-12 15:13:18.529913",
+ "modified": "2026-08-14 12:36:22.277110",
  "modified_by": "Administrator",
  "module": "Integration",
  "name": "Payment OTP",

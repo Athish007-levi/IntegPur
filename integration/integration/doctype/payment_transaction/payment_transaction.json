@@ -1,0 +1,123 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-08-14 11:44:40.111789",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "unique_id",
+  "debit_account",
+  "beneficiary_account",
+  "amount",
+  "mode_of_payment",
+  "payment_status",
+  "bank_transaction_id",
+  "response_code",
+  "response_message",
+  "processed_at",
+  "processing_time_ms",
+  "response_timestamp",
+  "purchase_invoice"
+ ],
+ "fields": [
+  {
+   "fieldname": "unique_id",
+   "fieldtype": "Data",
+   "label": "Unique ID",
+   "unique": 1
+  },
+  {
+   "fieldname": "debit_account",
+   "fieldtype": "Link",
+   "label": "debit_account",
+   "options": "Bank Account Configuration"
+  },
+  {
+   "fieldname": "beneficiary_account",
+   "fieldtype": "Data",
+   "label": "Beneficiary Account"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount"
+  },
+  {
+   "fieldname": "mode_of_payment",
+   "fieldtype": "Select",
+   "label": "Mode of Payment",
+   "options": "NEFT\nRTGS\nIMPS"
+  },
+  {
+   "fieldname": "payment_status",
+   "fieldtype": "Select",
+   "label": "Payment Status",
+   "options": "INITIATED\nOTP_PENDING\nOTP_VERIFIED\nPROCESSING\nCOMPLETED\nPENDING\nFAILED\nREJECTED"
+  },
+  {
+   "fieldname": "bank_transaction_id",
+   "fieldtype": "Data",
+   "label": "Bank Transaction ID"
+  },
+  {
+   "fieldname": "response_code",
+   "fieldtype": "Data",
+   "label": "Response Code"
+  },
+  {
+   "fieldname": "response_message",
+   "fieldtype": "Small Text",
+   "label": "Response Message"
+  },
+  {
+   "fieldname": "processed_at",
+   "fieldtype": "Datetime",
+   "label": "Processed At"
+  },
+  {
+   "fieldname": "processing_time_ms",
+   "fieldtype": "Float",
+   "label": "Processing Time (ms)"
+  },
+  {
+   "fieldname": "response_timestamp",
+   "fieldtype": "Datetime",
+   "label": "Response Timestamp"
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "purchase_invoice",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-14 12:54:21.147298",
+ "modified_by": "Administrator",
+ "module": "Integration",
+ "name": "Payment Transaction",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
