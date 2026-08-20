@@ -446,10 +446,8 @@ def generate_otp(
             ),
         }
 
-
     import random
     from datetime import timedelta
-
     from frappe.utils import now_datetime
 
     otp = str(
@@ -485,7 +483,6 @@ def generate_otp(
         ignore_permissions=True
     )
 
-
     otp_doc = frappe.get_doc(
         {
             "doctype": "Payment OTP",
@@ -510,8 +507,6 @@ def generate_otp(
     )
 
     frappe.db.commit()
-
-
 
     return {
         "success": True,
@@ -543,23 +538,20 @@ def validate_otp(
     otp,
 ):
 
-
     if not transaction_unique_id:
         frappe.throw(
             "Transaction Unique ID is required"
         )
 
     if not otp:
-        frappe.throw("OTP is required")
-
-
+        frappe.throw(
+            "OTP is required"
+        )
 
     otp_name = frappe.db.get_value(
         "Payment OTP",
         {
-            "transaction_unique_id": (
-                transaction_unique_id
-            ),
+            "transaction_unique_id": transaction_unique_id,
         },
         "name",
     )
@@ -595,6 +587,7 @@ def validate_otp(
     )
 
     if otp_doc.verification_status == "Verified":
+
         return {
             "success": True,
             "verified": True,
@@ -606,16 +599,23 @@ def validate_otp(
             "bank_transaction_id": (
                 payment.bank_transaction_id
             ),
+            "response_code": (
+                payment.response_code
+            ),
             "message": (
-                "OTP has already been verified."
+                "OTP has already been verified. "
+                "Payment is pending for bank processing."
             ),
         }
 
     if (otp_doc.attempt_count or 0) >= 3:
+
         otp_doc.verification_status = "Failed"
+
         otp_doc.save(
             ignore_permissions=True
         )
+
         frappe.db.commit()
 
         update_payment_status(
@@ -632,11 +632,17 @@ def validate_otp(
 
     from frappe.utils import now_datetime
 
-    if now_datetime() > otp_doc.expires_on:
+    if (
+        otp_doc.expires_on
+        and now_datetime() > otp_doc.expires_on
+    ):
+
         otp_doc.verification_status = "Expired"
+
         otp_doc.save(
             ignore_permissions=True
         )
+
         frappe.db.commit()
 
         update_payment_status(
@@ -656,8 +662,8 @@ def validate_otp(
         + 1
     )
 
-
     if str(otp_doc.otp) != str(otp):
+
         otp_doc.verification_status = "Failed"
 
         otp_doc.save(
@@ -696,223 +702,36 @@ def validate_otp(
 
     update_payment_status(
         payment,
-        payment_status="OTP_VERIFIED",
+        payment_status="PENDING",
         response_message=(
-            "OTP verified successfully."
+            "OTP verified successfully. "
+            "Payment is pending for bank processing."
         ),
     )
 
-    update_payment_status(
-        payment,
-        payment_status="PROCESSING",
-        response_message=(
-            "OTP verified. Processing payment."
-        ),
-    )
-
-    from integration.api.mock_bank import (
-        initiate_payment as mock_bank_initiate_payment
-    )
-
-    try:
-        bank_result = (
-            mock_bank_initiate_payment(
-                transaction_unique_id=(
-                    transaction_unique_id
-                ),
-                purchase_invoice=(
-                    payment.purchase_invoice
-                ),
-                debit_account=(
-                    payment.debit_account
-                ),
-                beneficiary_account=(
-                    payment.beneficiary_account
-                ),
-                amount=payment.amount,
-                mode_of_payment=(
-                    payment.mode_of_payment
-                ),
-            )
-        )
-
-    except Exception as exc:
-        update_payment_status(
-            payment,
-            payment_status="FAILED",
-            response_message=str(exc),
-        )
-
-        return {
-            "success": False,
-            "verified": True,
-            "transaction_unique_id": (
-                transaction_unique_id
-            ),
-            "payment_transaction": payment.name,
-            "payment_status": "FAILED",
-            "message": (
-                "OTP verified, but payment processing "
-                f"failed: {str(exc)}"
-            ),
-        }
-
-    processing_time_ms = (
-        get_response_value(
-            bank_result,
-            "processing_time_ms",
-        )
-    )
-
-    bank_transaction_id = (
-        get_response_value(
-            bank_result,
-            "transaction_id",
-        )
-        or get_response_value(
-            bank_result,
-            "bank_transaction_id",
-        )
-    )
-
-    response_code = get_response_value(
-        bank_result,
-        "response_code",
-    )
-
-    response_message = get_response_message(
-        bank_result
-    )
-
-    bank_status = get_response_value(
-        bank_result,
-        "payment_status",
-    )
-
-    if not bank_status:
-        bank_response = (
-            bank_result.get("response")
-            if isinstance(bank_result, dict)
-            else None
-        )
-
-        bank_status = get_response_value(
-            bank_response,
-            "status",
-        )
-
-    if bank_status:
-        bank_status = str(
-            bank_status
-        ).upper()
-
-
-    status_map = {
-        "INITIATED": "INITIATED",
-        "OTP_PENDING": "OTP_PENDING",
-        "OTP_VERIFIED": "OTP_VERIFIED",
-        "PROCESSING": "PROCESSING",
-        "COMPLETED": "COMPLETED",
-        "PENDING": "PENDING",
-        "FAILED": "FAILED",
-        "REJECTED": "REJECTED",
-        "SUCCESS": "COMPLETED",
-    }
-
-    final_status = status_map.get(
-        bank_status,
-        "FAILED",
-    )
-
-    if (
-        isinstance(bank_result, dict)
-        and bank_result.get("success")
-        and not bank_status
-    ):
-        final_status = "COMPLETED"
-
-    update_payment_status(
-        payment,
-        payment_status=final_status,
-        bank_transaction_id=(
-            bank_transaction_id
-        ),
-        response_code=response_code,
-        response_message=response_message,
-    )
-
-    if final_status == "COMPLETED":
-        return {
-            "success": True,
-            "verified": True,
-            "transaction_unique_id": (
-                transaction_unique_id
-            ),
-            "payment_transaction": payment.name,
-            "payment_status": "COMPLETED",
-            "bank_transaction_id": (
-                bank_transaction_id
-            ),
-            "response_code": response_code,
-            "response_message": (
-                response_message
-            ),
-            "processing_time_ms": (
-                processing_time_ms
-            ),
-            "message": (
-                "Payment process completed."
-            ),
-        }
-
-    if final_status in {
-        "PROCESSING",
-        "PENDING",
-    }:
-        return {
-            "success": True,
-            "verified": True,
-            "transaction_unique_id": (
-                transaction_unique_id
-            ),
-            "payment_transaction": payment.name,
-            "payment_status": final_status,
-            "bank_transaction_id": (
-                bank_transaction_id
-            ),
-            "response_code": response_code,
-            "response_message": (
-                response_message
-            ),
-            "processing_time_ms": (
-                processing_time_ms
-            ),
-            "message": (
-                "OTP verified. Payment is being processed."
-            ),
-        }
+    frappe.db.commit()
 
     return {
-        "success": False,
+        "success": True,
         "verified": True,
         "transaction_unique_id": (
             transaction_unique_id
         ),
         "payment_transaction": payment.name,
-        "payment_status": final_status,
+        "payment_status": "PENDING",
         "bank_transaction_id": (
-            bank_transaction_id
+            payment.bank_transaction_id
         ),
-        "response_code": response_code,
+        "response_code": (
+            payment.response_code
+        ),
         "response_message": (
-            response_message
-        ),
-        "processing_time_ms": (
-            processing_time_ms
+            "OTP verified successfully. "
+            "Payment is pending for bank processing."
         ),
         "message": (
-            response_message
-            or "Payment processing failed."
+            "OTP verified. Payment has been queued "
+            "for bank processing."
         ),
     }
 
@@ -954,4 +773,3 @@ def update_payment_status(
         frappe.db.commit()
 
     return payment
-
