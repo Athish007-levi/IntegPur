@@ -1,0 +1,84 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "BULK PAY OTP-.####",
+ "creation": "2026-08-26 16:57:01.441329",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "bulk_request_id",
+  "otp",
+  "status",
+  "generated_on",
+  "expires_on",
+  "attempt_count",
+  "transactions_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "bulk_request_id",
+   "fieldtype": "Data",
+   "label": "bulk_request_id"
+  },
+  {
+   "fieldname": "otp",
+   "fieldtype": "Data",
+   "label": "otp"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "status",
+   "options": "Pending\nVerified\nExpired\nFailed"
+  },
+  {
+   "fieldname": "generated_on",
+   "fieldtype": "Datetime",
+   "label": "generated_on"
+  },
+  {
+   "fieldname": "expires_on",
+   "fieldtype": "Datetime",
+   "label": "expires_on"
+  },
+  {
+   "fieldname": "attempt_count",
+   "fieldtype": "Int",
+   "label": "attempt_count"
+  },
+  {
+   "fieldname": "transactions_json",
+   "fieldtype": "Long Text",
+   "label": "transactions_json"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-26 17:15:19.436624",
+ "modified_by": "Administrator",
+ "module": "Integration",
+ "name": "Bulk Payment OTP",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

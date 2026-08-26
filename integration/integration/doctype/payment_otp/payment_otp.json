@@ -8,6 +8,7 @@
  "engine": "InnoDB",
  "field_order": [
   "transaction_unique_id",
+  "bulk_request_id",
   "purchase_invoice",
   "phone_number",
   "otp",
@@ -24,6 +25,13 @@
    "in_list_view": 1,
    "label": "Transaction Unique ID",
    "reqd": 1
+  },
+  {
+   "fieldname": "bulk_request_id",
+   "fieldtype": "Data",
+   "label": "Bulk Request ID",
+   "in_list_view": 1,
+   "read_only": 1
   },
   {
    "fieldname": "purchase_invoice",

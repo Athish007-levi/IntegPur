@@ -400,6 +400,10 @@ def initiate_single_payment(
         payment.payment_status
     )
 
+    # =====================================================
+    # BASIC VALIDATION
+    # =====================================================
+
     if not payment.unique_id:
 
         create_scheduler_log(
@@ -520,6 +524,10 @@ def initiate_single_payment(
             ),
         }
 
+    # =====================================================
+    # START INITIATION
+    # =====================================================
+
     create_scheduler_log(
         payment=payment,
         action=ACTION_INITIATE,
@@ -554,13 +562,30 @@ def initiate_single_payment(
 
     except Exception as exc:
 
+        # =================================================
+        # INITIATION ATTEMPT FAILED
+        #
+        # This is ONE AND ONLY ONE attempt.
+        #
+        # Do NOT leave the transaction as PENDING.
+        # PENDING would cause the scheduler to try
+        # initiation again on the next scheduler run.
+        # =================================================
+
         error_message = str(exc)
+
+        update_payment_transaction(
+            payment=payment,
+            payment_status="FAILED",
+            response_message=error_message,
+        )
 
         create_scheduler_log(
             payment=payment,
             action=ACTION_INITIATE,
             scheduler_status="FAILED",
             previous_status=previous_status,
+            new_status="FAILED",
             success=False,
             error_message=error_message,
         )
@@ -574,8 +599,13 @@ def initiate_single_payment(
 
         return {
             "success": False,
+            "payment_status": "FAILED",
             "message": error_message,
         }
+
+    # =====================================================
+    # READ RESPONSE
+    # =====================================================
 
     response_code = get_response_code(
         result
@@ -609,19 +639,122 @@ def initiate_single_payment(
         bank_status
     )
 
+    # =====================================================
+    # NO RESPONSE / REQUEST FAILURE
+    # =====================================================
+    #
+    # mock_bank.initiate_payment() returns:
+    #
+    # success = False
+    # response = None
+    #
+    # when requests.post() gets a timeout,
+    # connection error, DNS error, etc.
+    #
+    # This MUST become FAILED.
+    #
+    # Otherwise it becomes PENDING and gets retried.
+    # =====================================================
+
+    if (
+        not result.get("success")
+        and result.get("response") is None
+    ):
+
+        final_status = "FAILED"
+
+        failure_message = (
+            response_message
+            or
+            "No response received from Mock Bank "
+            "during payment initiation."
+        )
+
+        update_payment_transaction(
+            payment=payment,
+            payment_status=final_status,
+            bank_transaction_id=(
+                bank_transaction_id
+            ),
+            response_code=response_code,
+            response_message=failure_message,
+        )
+
+        create_scheduler_log(
+            payment=payment,
+            action=ACTION_INITIATE,
+            scheduler_status="FAILED",
+            previous_status=previous_status,
+            new_status=final_status,
+            bank_transaction_id=(
+                bank_transaction_id
+            ),
+            response_code=response_code,
+            response_message=failure_message,
+            processing_time_ms=(
+                processing_time_ms
+            ),
+            success=False,
+            error_message=failure_message,
+        )
+
+        return {
+            "success": False,
+            "payment_status": "FAILED",
+            "bank_transaction_id": (
+                bank_transaction_id
+            ),
+            "response_code": response_code,
+            "response_message": failure_message,
+            "message": failure_message,
+        }
+
+    # =====================================================
+    # BANK RETURNED A RESPONSE BUT IT WAS UNSUCCESSFUL
+    # =====================================================
+
     if not result.get("success"):
 
-        final_status = (
-            bank_status
-            if bank_status in {
-                "PENDING",
-                "PROCESSING",
-                "COMPLETED",
-                "FAILED",
-                "REJECTED",
-            }
-            else "PENDING"
-        )
+        # -------------------------------------------------
+        # If bank explicitly returned a terminal status,
+        # preserve it.
+        # -------------------------------------------------
+
+        if bank_status in {
+            "COMPLETED",
+            "FAILED",
+            "REJECTED",
+        }:
+
+            final_status = bank_status
+
+        # -------------------------------------------------
+        # If bank responded with PENDING/PROCESSING,
+        # preserve the existing workflow.
+        #
+        # This is NOT a retry of initiation.
+        # We have already successfully received a bank
+        # response, so status polling can continue.
+        # -------------------------------------------------
+
+        elif bank_status in {
+            "PENDING",
+            "PROCESSING",
+        }:
+
+            final_status = bank_status
+
+        # -------------------------------------------------
+        # Any other actual response failure:
+        #
+        # Do NOT leave it as PENDING.
+        # There is no definitive payment state.
+        # Treat this initiation attempt as failed.
+        # -------------------------------------------------
+
+        else:
+
+            final_status = "FAILED"
 
         update_payment_transaction(
             payment=payment,
@@ -632,10 +765,8 @@ def initiate_single_payment(
             response_code=response_code,
             response_message=(
                 response_message
-                or (
-                    "Payment initiation did not return "
-                    "a definitive result."
-                )
+                or
+                "Payment initiation failed."
             ),
         )
 
@@ -658,10 +789,8 @@ def initiate_single_payment(
             success=False,
             error_message=(
                 response_message
-                or (
-                    "Payment initiation failed. "
-                    "Payment remains pending."
-                )
+                or
+                "Payment initiation failed."
             ),
         )
 
@@ -677,9 +806,28 @@ def initiate_single_payment(
             ),
         }
 
+    # =====================================================
+    # SUCCESSFUL RESPONSE BUT NO PAYMENT STATUS
+    # =====================================================
+
     if not bank_status:
 
-        final_status = "PENDING"
+        # -------------------------------------------------
+        # We DID receive a response, but the response does
+        # not contain a usable payment_status.
+        #
+        # Since initiation was already attempted once,
+        # do not attempt initiation again.
+        # -------------------------------------------------
+
+        final_status = "FAILED"
+
+        failure_message = (
+            response_message
+            or
+            "Bank returned a response without "
+            "payment_status."
+        )
 
         update_payment_transaction(
             payment=payment,
@@ -688,13 +836,7 @@ def initiate_single_payment(
                 bank_transaction_id
             ),
             response_code=response_code,
-            response_message=(
-                response_message
-                or (
-                    "Bank did not return "
-                    "payment_status."
-                )
-            ),
+            response_message=failure_message,
         )
 
         create_scheduler_log(
@@ -707,22 +849,27 @@ def initiate_single_payment(
                 bank_transaction_id
             ),
             response_code=response_code,
-            response_message=(
-                response_message
-            ),
+            response_message=failure_message,
             processing_time_ms=(
                 processing_time_ms
             ),
             success=False,
-            error_message=(
-                "Bank did not return payment_status."
-            ),
+            error_message=failure_message,
         )
 
         return {
             "success": False,
-            "payment_status": final_status,
+            "payment_status": "FAILED",
+            "bank_transaction_id": (
+                bank_transaction_id
+            ),
+            "response_code": response_code,
+            "response_message": failure_message,
         }
+
+    # =====================================================
+    # NORMAL SUCCESSFUL BANK RESPONSE
+    # =====================================================
 
     update_payment_transaction(
         payment=payment,

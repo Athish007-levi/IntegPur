@@ -47,7 +47,7 @@
    "fieldname": "mode_of_payment",
    "fieldtype": "Select",
    "label": "Mode of Payment",
-   "options": "NEFT\nRTGS\nIMPS"
+   "options": "NEFT\nRTGS\nIMPS\nUPI"
   },
   {
    "fieldname": "payment_status",
